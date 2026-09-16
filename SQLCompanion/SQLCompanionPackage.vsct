@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SQLCompanionPackage.vsct
+  ========================
+  Defines all commands, groups, the SQL Companion toolbar, the Tools-menu entries, and the
+  query-editor right-click command.
+
+  GUIDs/IDs here MUST match PackageGuids.cs / PackageIds:
+     guidSQLCompanionPackage = PackageGuids.PackageGuidString
+     guidSQLCompanionCmdSet  = PackageGuids.CommandSetGuidString
+     cmdidShowColumnSearch   = 0x0100
+     cmdidShowRelationships  = 0x0101
+     cmdidDeclareVariables   = 0x0102
+
+  ICONS: buttons intentionally declare no <Icon>, so no bitmap resource is required and the build
+  stays simple. VS shows a default glyph. Add a <Bitmaps> strip later if you want custom icons.
+-->
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidSQLCompanionPackage">
+
+    <!-- ============================ TOOLBAR + TOOLS SUBMENU ============================ -->
+    <Menus>
+      <Menu guid="guidSQLCompanionCmdSet" id="SQLCompanionToolbar" type="Toolbar">
+        <CommandFlag>DefaultDocked</CommandFlag>
+        <Strings>
+          <ButtonText>SQL Companion</ButtonText>
+          <CommandName>SQL Companion</CommandName>
+        </Strings>
+      </Menu>
+
+      <!-- Single "SQL Companion" submenu on the Tools menu; all commands live under it so the
+           extension shows as ONE entry instead of several loose items. -->
+      <Menu guid="guidSQLCompanionCmdSet" id="SQLCompanionMenu" priority="0x0600" type="Menu">
+        <Parent guid="guidSQLCompanionCmdSet" id="ToolsMenuGroup" />
+        <Strings>
+          <ButtonText>SQL Companion</ButtonText>
+          <CommandName>SQL Companion</CommandName>
+        </Strings>
+      </Menu>
+    </Menus>
+
+    <!-- ============================ GROUPS ============================ -->
+    <Groups>
+      <!-- Group hosted on our toolbar. -->
+      <Group guid="guidSQLCompanionCmdSet" id="ToolbarGroup" priority="0x0000">
+        <Parent guid="guidSQLCompanionCmdSet" id="SQLCompanionToolbar" />
+      </Group>
+
+      <!-- Group on the main Tools menu that hosts our single "SQL Companion" submenu. -->
+      <Group guid="guidSQLCompanionCmdSet" id="ToolsMenuGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+
+      <!-- Group INSIDE the "SQL Companion" submenu that holds the actual commands. -->
+      <Group guid="guidSQLCompanionCmdSet" id="SubMenuGroup" priority="0x0000">
+        <Parent guid="guidSQLCompanionCmdSet" id="SQLCompanionMenu" />
+      </Group>
+
+      <!-- Group hosted on the code-window (query editor) right-click context menu. -->
+      <Group guid="guidSQLCompanionCmdSet" id="CtxGroup" priority="0x0500">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+      </Group>
+    </Groups>
+
+    <!-- ============================ BUTTONS ============================ -->
+    <Buttons>
+      <!-- Open Column Search -->
+      <Button guid="guidSQLCompanionCmdSet" id="cmdidShowColumnSearch" priority="0x0100" type="Button">
+        <Parent guid="guidSQLCompanionCmdSet" id="ToolbarGroup" />
+        <Icon guid="guidImages" id="bmpColumnSearch" />
+        <Strings>
+          <ButtonText>Column Search</ButtonText>
+          <!-- ToolTipText is the tooltip shown on hover; mirror Strings.Tooltips.ShowColumnSearch -->
+          <ToolTipText>Open the column search window to find columns across all tables and views.</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- Open Relationships -->
+      <Button guid="guidSQLCompanionCmdSet" id="cmdidShowRelationships" priority="0x0101" type="Button">
+        <Parent guid="guidSQLCompanionCmdSet" id="ToolbarGroup" />
+        <Icon guid="guidImages" id="bmpRelationships" />
+        <Strings>
+          <ButtonText>Relationships</ButtonText>
+          <ToolTipText>Open the relationships panel to see foreign-key links for a table.</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- Declare variables -->
+      <Button guid="guidSQLCompanionCmdSet" id="cmdidDeclareVariables" priority="0x0102" type="Button">
+        <Parent guid="guidSQLCompanionCmdSet" id="ToolbarGroup" />
+        <Icon guid="guidImages" id="bmpDeclareVariables" />
+        <Strings>
+          <ButtonText>Declare Variables</ButtonText>
+          <ToolTipText>Adds DECLARE statements for any variables used without one.</ToolTipText>
+        </Strings>
+      </Button>
+    </Buttons>
+
+    <!-- ============================ ICONS ============================
+         Commands.png is a 48x16 strip of three 16x16 icons. The VSCT compiler embeds it into the
+         Menus.ctmenu resource at build time, so the PNG does not need to ship inside the VSIX.
+         usedList ids are 1-based indices into the strip and MUST match the <IDSymbol> values below. -->
+    <Bitmaps>
+      <Bitmap guid="guidImages" href="Resources\Commands.png"
+              usedList="bmpColumnSearch, bmpRelationships, bmpDeclareVariables" />
+    </Bitmaps>
+  </Commands>
+
+  <!-- ==================== EXTRA PLACEMENTS ====================
+       Reuse the same command IDs in more than one parent group. -->
+  <CommandPlacements>
+    <!-- All three commands live under the single Tools ▸ SQL Companion submenu. -->
+    <CommandPlacement guid="guidSQLCompanionCmdSet" id="cmdidShowColumnSearch" priority="0x0100">
+      <Parent guid="guidSQLCompanionCmdSet" id="SubMenuGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidSQLCompanionCmdSet" id="cmdidShowRelationships" priority="0x0101">
+      <Parent guid="guidSQLCompanionCmdSet" id="SubMenuGroup" />
+    </CommandPlacement>
+    <CommandPlacement guid="guidSQLCompanionCmdSet" id="cmdidDeclareVariables" priority="0x0102">
+      <Parent guid="guidSQLCompanionCmdSet" id="SubMenuGroup" />
+    </CommandPlacement>
+
+    <!-- Declare variables also on the query-editor right-click menu. -->
+    <CommandPlacement guid="guidSQLCompanionCmdSet" id="cmdidDeclareVariables" priority="0x0100">
+      <Parent guid="guidSQLCompanionCmdSet" id="CtxGroup" />
+    </CommandPlacement>
+  </CommandPlacements>
+
+  <!-- ============================ SYMBOLS ============================ -->
+  <Symbols>
+    <GuidSymbol name="guidSQLCompanionPackage" value="{0e5f2d3a-1a11-4b22-9c33-a1b2c3d4e001}" />
+
+    <GuidSymbol name="guidSQLCompanionCmdSet" value="{0e5f2d3a-1a11-4b22-9c33-a1b2c3d4e002}">
+      <!-- Toolbar + submenu + groups -->
+      <IDSymbol name="SQLCompanionToolbar" value="0x2000" />
+      <IDSymbol name="SQLCompanionMenu" value="0x2100" />
+      <IDSymbol name="ToolbarGroup" value="0x1010" />
+      <IDSymbol name="ToolsMenuGroup" value="0x1020" />
+      <IDSymbol name="CtxGroup" value="0x1030" />
+      <IDSymbol name="SubMenuGroup" value="0x1040" />
+
+      <!-- Commands (match PackageIds) -->
+      <IDSymbol name="cmdidShowColumnSearch" value="0x0100" />
+      <IDSymbol name="cmdidShowRelationships" value="0x0101" />
+      <IDSymbol name="cmdidDeclareVariables" value="0x0102" />
+    </GuidSymbol>
+
+    <!-- Image strip. The IDSymbol values are the 1-based positions of each icon in Commands.png. -->
+    <GuidSymbol name="guidImages" value="{0e5f2d3a-1a11-4b22-9c33-a1b2c3d4e006}">
+      <IDSymbol name="bmpColumnSearch" value="1" />
+      <IDSymbol name="bmpRelationships" value="2" />
+      <IDSymbol name="bmpDeclareVariables" value="3" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

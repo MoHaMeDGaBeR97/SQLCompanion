@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  source.extension.vsixmanifest  (LEGACY 2010 vsx-schema — REQUIRED for SSMS)
+  ===========================================================================
+  SSMS 20 is a Visual Studio 2017 (15.0) ISOLATED SHELL app whose product id is "ssms".
+  It is NOT present in the modern VS setup catalog, so the v3 (PackageManifest / 2.0.0)
+  <InstallationTarget> mechanism can NEVER match it — every attempt (Community/Pro/
+  Enterprise/IsolatedShell/IsolatedShell.ssms at 15.x and 20.x) failed with
+  VSIXInstaller.NoApplicableSKUsException, even though the installer reports
+  "Found installed product - ssms".
+
+  The ONLY manifest form SSMS's VSIXInstaller matches for an isolated shell is the legacy
+  2010 <SupportedProducts><IsolatedShell> element. This is exactly what SSMS's own core
+  extension declares (Common7\IDE\Extensions\Application\extension.vsixmanifest):
+      <SupportedProducts><IsolatedShell Version="1.0">ssms</IsolatedShell></SupportedProducts>
+
+  Install with SSMS's own installer:
+      "<SSMS>\Common7\IDE\VSIXInstaller.exe" SQLCompanion.vsix
+-->
+<Vsix Version="1.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2010" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Identifier Id="SQLCompanion.0e5f2d3a-1a11-4b22-9c33-a1b2c3d4e099">
+    <Name>SQL Companion for SSMS</Name>
+    <Author>LinkDev</Author>
+    <Version>1.0.0</Version>
+    <Description xml:space="preserve">Productivity add-in for SQL Server Management Studio 20: cross-table column search, auto-declare variables, and a foreign-key relationships explorer with click-to-insert JOINs.</Description>
+    <Locale>1033</Locale>
+    <!-- Version 1.0 matches SSMS's OWN in-process extension loader convention (see its core
+         manifest Application\extension.vsixmanifest). NOTE: the standalone VSIXInstaller.exe
+         rejects EVERY value here with NoApplicableSKUs (it computes the "ssms" product SKU
+         differently than the in-process loader); this extension is therefore deployed by copying
+         into SSMS's per-user Extensions folder, where the in-process loader discovers it and this
+         "1.0" match succeeds. See README / deploy step. -->
+    <SupportedProducts>
+      <IsolatedShell Version="1.0">ssms</IsolatedShell>
+    </SupportedProducts>
+    <SupportedFrameworkRuntimeEdition MinVersion="4.5" MaxVersion="4.8" />
+  </Identifier>
+  <References />
+  <Content>
+    <VsPackage>SQLCompanion.pkgdef</VsPackage>
+    <Assembly AssemblyName="SQLCompanion, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">SQLCompanion.dll</Assembly>
+  </Content>
+</Vsix>

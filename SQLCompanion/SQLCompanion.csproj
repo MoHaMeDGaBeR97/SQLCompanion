@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SQLCompanion.csproj
+  ===================
+  A classic (packages.config-free, PackageReference-based) VSIX project targeting the
+  Visual Studio 2017 (15.0) isolated *shell*, which is what SSMS 20 is built on.
+
+  IMPORTANT COMPATIBILITY NOTES:
+   * TargetFrameworkVersion is 4.7.2 (>= the SSMS 20 requirement).
+   * We reference Microsoft.VisualStudio.SDK 15.9.x (the VS 2017 / 15.0 isolated-shell SDK).
+     >>> SSMS 20 IS BUILT ON THE VS 2017 (15.0) ISOLATED SHELL, NOT VS 2019 (16.x). <<<
+     Verified on-machine: HKLM\SOFTWARE\WOW6432Node\Microsoft\AppEnv\15.0\Apps\ssms_20.0 and
+     Shell.Framework.dll = 15.0.28307. Do NOT bump these to 16.x/17.x — SSMS will refuse the VSIX
+     (NoApplicableSKUsException) and/or fail to load the package at runtime.
+   * All WPF UI is built in C# (no .xaml markup compilation) on purpose, so the classic
+     VSIX build never needs the WPF markup targets. This removes a whole class of build
+     fragility. If you prefer XAML, you can add <Page> items + PresentationFramework and
+     wire up MarkupCompilePass targets yourself.
+-->
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <SchemaVersion>2.0</SchemaVersion>
+    <!-- ProjectTypeGuids: first = VSIX, second = C# -->
+    <ProjectTypeGuids>{82b43b9b-a64c-4715-b499-d71e9ca2bd60};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <ProjectGuid>{0E5F2D3A-1A11-4B22-9C33-A1B2C3D4E005}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>SQLCompanion</RootNamespace>
+    <AssemblyName>SQLCompanion</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <!-- Do NOT auto-deploy the built VSIX into a VS experimental instance. This project targets
+         SSMS, not VS2022, and the deploy step (a) writes into the wrong product's Exp hive and
+         (b) fails with VSSDK1081 (file locked) when that hive is in use. We install into SSMS
+         explicitly via SSMS's own VSIXInstaller.exe. -->
+    <DeployExtension>false</DeployExtension>
+    <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>false</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
+    <!-- F5 debugging: overridden per README to launch Ssms.exe. Default points at devenv Exp hive. -->
+    <StartAction>Program</StartAction>
+    <StartProgram Condition="'$(DevEnvDir)' != ''">$(DevEnvDir)devenv.exe</StartProgram>
+    <StartArguments>/rootsuffix Exp</StartArguments>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <!-- Framework references. WPF assemblies are referenced directly (we build UI in code). -->
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <!-- System.Design provides System.ComponentModel.Design.MenuCommandService used by AddCommand. -->
+    <Reference Include="System.Design" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <!-- Source files -->
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="PackageGuids.cs" />
+    <Compile Include="SQLCompanionPackage.cs" />
+    <Compile Include="Strings.cs" />
+    <Compile Include="Db\Models.cs" />
+    <Compile Include="Db\ConnectionContext.cs" />
+    <Compile Include="Db\DatabaseService.cs" />
+    <Compile Include="Editor\EditorService.cs" />
+    <Compile Include="Editor\JoinClauseBuilder.cs" />
+    <Compile Include="Features\ColumnSearch\ColumnSearchToolWindow.cs" />
+    <Compile Include="Features\ColumnSearch\ColumnSearchControl.cs" />
+    <Compile Include="Features\DeclareVariables\DeclareVariableGenerator.cs" />
+    <Compile Include="Features\DeclareVariables\DeclareVariablesCommand.cs" />
+    <Compile Include="Features\Relationships\RelationshipsToolWindow.cs" />
+    <Compile Include="Features\Relationships\RelationshipsControl.cs" />
+    <Compile Include="Commands\ShowColumnSearchCommand.cs" />
+    <Compile Include="Commands\ShowRelationshipsCommand.cs" />
+  </ItemGroup>
+
+  <!-- VSCT command table. VSCTCompile generates the .cto consumed at runtime. -->
+  <ItemGroup>
+    <VSCTCompile Include="SQLCompanionPackage.vsct">
+      <ResourceName>Menus.ctmenu</ResourceName>
+    </VSCTCompile>
+    <!-- Command icon strip referenced by the .vsct <Bitmaps>. It is embedded into the ctmenu
+         resource at build, so it does not need to be shipped inside the VSIX (IncludeInVSIX=false). -->
+    <Content Include="Resources\Commands.png">
+      <IncludeInVSIX>false</IncludeInVSIX>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="source.extension.vsixmanifest">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="README.md" />
+  </ItemGroup>
+
+  <!-- NuGet references.
+       Microsoft.VisualStudio.SDK 15.9.3 => the VS2017 (15.0) isolated-shell / SSMS 20 assemblies.
+       Microsoft.VSSDK.BuildTools 16.11  => vsct compiler, pkgdef + vsix packaging (build tasks only;
+                                            see the note below on why 16.11, not 15.9).
+       ExcludeAssets=runtime keeps the SDK assemblies out of our VSIX (they're in the shell). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="15.9.3" ExcludeAssets="runtime" NoWarn="NU1605;NU1604" />
+    <!-- BuildTools ONLY provides the build tasks (vsct compiler, pkgdef gen, vsix packaging); it does
+         NOT affect which VS shell we target (that is the SDK version + the manifest). We deliberately
+         use a 16.x BuildTools, not 15.9.x: the 15.9 build tasks
+         (Microsoft.VisualStudio.Sdk.BuildTasks.15.0.dll) are x86-only and fail to load under the
+         64-bit MSBuild that the VS2022 IDE uses ("could not be loaded ... an attempt was made to load
+         a program with an incorrect format" / BadImageFormatException). The 16.11 tasks are AnyCPU. -->
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="16.11.2" NoWarn="NU1605;NU1604" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="'$(VSToolsPath)' != ''" />
+</Project>
