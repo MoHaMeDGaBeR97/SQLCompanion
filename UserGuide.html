@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SQL Companion for SSMS — User Guide</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  :root{
+    --ink:#1a2230; --muted:#5b6675; --line:#d9dee6; --accent:#1f6feb; --accent-dark:#144a9e;
+    --code-bg:#f4f6f9; --chip:#eef3fb; --warn-bg:#fff7e6; --warn-line:#e0b64d;
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Segoe UI",-apple-system,Helvetica,Arial,sans-serif;
+    color:var(--ink); font-size:10.6pt; line-height:1.5; margin:0;
+  }
+  h1,h2,h3{ line-height:1.2; color:var(--ink); }
+  h1{ font-size:26pt; margin:0 0 2pt; letter-spacing:-.3pt; }
+  h2{ font-size:15pt; margin:22pt 0 6pt; padding-bottom:4pt; border-bottom:2px solid var(--accent); }
+  h3{ font-size:11.6pt; margin:13pt 0 3pt; color:var(--accent-dark); }
+  p{ margin:5pt 0; }
+  ul,ol{ margin:5pt 0 5pt 0; padding-left:20pt; }
+  li{ margin:2.5pt 0; }
+  code{ font-family:Consolas,"Courier New",monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:9.4pt; }
+  pre{ background:var(--code-bg); border:1px solid var(--line); border-radius:7px; padding:10pt 12pt; overflow:auto; font-size:9.2pt; font-family:Consolas,"Courier New",monospace; line-height:1.45; }
+  pre code{ background:none; padding:0; }
+  a{ color:var(--accent); text-decoration:none; }
+  .lede{ color:var(--muted); font-size:12pt; margin:2pt 0 4pt; }
+  .meta{ color:var(--muted); font-size:9pt; margin-top:2pt; }
+  .rule{ height:3px; background:linear-gradient(90deg,var(--accent),#7fb0ff); border:0; border-radius:2px; margin:10pt 0 0; }
+  table{ border-collapse:collapse; width:100%; margin:7pt 0; font-size:9.4pt; }
+  th,td{ border:1px solid var(--line); padding:5pt 7pt; text-align:left; vertical-align:top; }
+  th{ background:var(--chip); font-weight:600; }
+  .chip{ display:inline-block; background:var(--chip); color:var(--accent-dark); border:1px solid #cfe0fb; border-radius:20px; padding:1px 9px; font-size:8.6pt; font-weight:600; }
+  .note,.warn{ border-radius:7px; padding:8pt 11pt; margin:8pt 0; font-size:9.6pt; }
+  .note{ background:var(--chip); border:1px solid #cfe0fb; }
+  .warn{ background:var(--warn-bg); border:1px solid var(--warn-line); }
+  .note b,.warn b{ color:var(--ink); }
+  .steps{ counter-reset:step; list-style:none; padding-left:0; }
+  .steps li{ position:relative; padding-left:26pt; margin:6pt 0; }
+  .steps li::before{ counter-increment:step; content:counter(step); position:absolute; left:0; top:0;
+    width:18pt; height:18pt; background:var(--accent); color:#fff; border-radius:50%;
+    font-size:9pt; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .feature{ break-inside:avoid; }
+  .kbd{ font-family:Consolas,monospace; background:#fff; border:1px solid #c4ccd6; border-bottom-width:2px; border-radius:4px; padding:0 5px; font-size:9pt; }
+  .toc a{ color:var(--ink); }
+  .toc ol{ padding-left:18pt; }
+  section{ break-inside:auto; }
+  .pagebreak{ break-before:page; }
+  footer{ margin-top:14pt; padding-top:6pt; border-top:1px solid var(--line); color:var(--muted); font-size:8.6pt; }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="chip">SSMS 20 add-in</div>
+    <h1>SQL Companion for SSMS</h1>
+    <p class="lede">Cross-table column search, a foreign-key relationships explorer with click-to-insert JOINs, and an auto-declare-variables command — all inside SQL Server Management Studio 20.</p>
+    <hr class="rule">
+    <p class="meta">User Guide · Publisher: LinkDev · Applies to SSMS 20 (Visual Studio 2017 / 15.0 isolated shell)</p>
+  </header>
+
+  <section class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li>Overview</li>
+      <li>Requirements</li>
+      <li>Installation</li>
+      <li>Getting started</li>
+      <li>Feature 1 — Column Search</li>
+      <li>Feature 2 — Relationships</li>
+      <li>Feature 3 — Declare Variables</li>
+      <li>Tips &amp; troubleshooting</li>
+      <li>Sample test database</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>1 · Overview</h2>
+    <p>SQL Companion adds three productivity tools to SSMS 20, reachable from the <b>Tools ▸ SQL Companion</b> submenu, the <b>SQL Companion</b> toolbar, and the query-editor right-click menu:</p>
+    <table>
+      <tr><th>Tool</th><th>What it does</th></tr>
+      <tr><td><b>Column Search</b></td><td>Find every table/view column whose name matches your text — across a database or the whole server.</td></tr>
+      <tr><td><b>Relationships</b></td><td>Browse a table's foreign-key relationships (both directions) and insert ready-made JOINs.</td></tr>
+      <tr><td><b>Declare Variables</b></td><td>Scan the current batch and add <code>DECLARE</code> statements for variables used without one.</td></tr>
+    </table>
+    <p>Both tool windows read the <b>active query window's connection</b>, so connect and open a query window first.</p>
+  </section>
+
+  <section>
+    <h2>2 · Requirements</h2>
+    <ul>
+      <li><b>SQL Server Management Studio 20</b> (built on the Visual Studio 2017 / 15.0 isolated shell).</li>
+      <li><b>.NET Framework 4.7.2</b> or later (installed with SSMS 20).</li>
+      <li>Administrator rights on the machine <i>for installation only</i> (the extension is copied under SSMS's program folder).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3 · Installation</h2>
+    <div class="warn"><b>Do not double-click the <code>.vsix</code>.</b> SSMS 20's standalone VSIX installer cannot install this add-in (it reports <i>“not installable on any currently installed products”</i>). SQL Companion must be deployed into SSMS's machine-wide extensions folder and registered with a one-time menu merge. The included <code>deploy.ps1</code> does this for you.</div>
+
+    <h3>Install with deploy.ps1 (recommended)</h3>
+    <ol class="steps">
+      <li>Close SSMS.</li>
+      <li>Open <b>Windows PowerShell as Administrator</b>.</li>
+      <li>Run it from the project folder:
+        <pre><code>cd C:\path\to\SQLCompanion
+.\deploy.ps1                     # build + deploy + register
+.\deploy.ps1 -Configuration Release
+.\deploy.ps1 -Uninstall          # remove it</code></pre>
+      </li>
+      <li>Start SSMS 20. The <b>Tools ▸ SQL Companion</b> submenu appears.</li>
+    </ol>
+    <p class="meta">The script builds the project, copies <code>extension.vsixmanifest</code>, <code>SQLCompanion.dll</code> and <code>SQLCompanion.pkgdef</code> into <code>…\Microsoft SQL Server Management Studio 20\Common7\IDE\Extensions\SQLCompanion\</code>, and runs <code>ssms.exe /setup</code> to merge the menus. It self-elevates via UAC if needed.</p>
+
+    <h3>What the installer produces</h3>
+    <p>After a successful install you will see, under <b>Tools ▸ SQL Companion</b>: <span class="chip">Column Search</span> <span class="chip">Relationships</span> <span class="chip">Declare Variables</span></p>
+  </section>
+
+  <section>
+    <h2>4 · Getting started</h2>
+    <ol class="steps">
+      <li>Open SSMS and <b>connect to a server</b>.</li>
+      <li>Open a <b>new query window</b> (<span class="kbd">Ctrl</span>+<span class="kbd">N</span>) — this is the connection the tools read.</li>
+      <li>Open a tool from <b>Tools ▸ SQL Companion</b> (or the <b>SQL Companion</b> toolbar).</li>
+    </ol>
+    <div class="note">Each tool window shows the current connection at the top (<code>Connected: server / database</code>). If it says <i>“No active SQL connection”</i>, click into a connected query window and press <b>Refresh</b>.</div>
+  </section>
+
+  <section class="feature pagebreak">
+    <h2>5 · Feature 1 — Column Search</h2>
+    <p>Find columns by name across many tables and views — ideal when you know a column exists but not where.</p>
+    <h3>How to use</h3>
+    <ol class="steps">
+      <li>Open <b>Tools ▸ SQL Companion ▸ Column Search</b>.</li>
+      <li>Type a full or partial column name (matching is <b>case-insensitive</b> and <b>partial</b>) and press <span class="kbd">Enter</span> or <b>Search</b>.</li>
+      <li>Refine with the <b>Scope</b>, <b>Schema</b>, and <b>Recent</b> controls.</li>
+    </ol>
+    <h3>Controls</h3>
+    <table>
+      <tr><th>Control</th><th>Purpose</th></tr>
+      <tr><td>Scope</td><td><b>Current database</b> or <b>All databases (server)</b>.</td></tr>
+      <tr><td>Schema</td><td>Show only results from one schema (or all).</td></tr>
+      <tr><td>Recent</td><td>Re-run one of your recent searches.</td></tr>
+      <tr><td>Export CSV / Copy All</td><td>Save results to a CSV file, or copy them as tab-separated text.</td></tr>
+      <tr><td>Refresh</td><td>Re-read the active server/database from SSMS.</td></tr>
+    </table>
+    <h3>Results grid</h3>
+    <p>Columns: <b>Database, Schema, Table/View, Type, Column, Data Type, Nullable, Key</b>. The <b>Key</b> badge shows <code>PK</code>, <code>FK</code>, or <code>PK,FK</code>. Click a header to sort.</p>
+    <h3>Row actions</h3>
+    <ul>
+      <li><b>Double-click</b> a row to insert the fully-qualified <code>[schema].[table]</code> at the editor cursor.</li>
+      <li><b>Right-click</b> a row for: Insert table name, Insert column name, Generate <code>SELECT</code>, Copy column name, Copy table name.</li>
+    </ul>
+  </section>
+
+  <section class="feature pagebreak">
+    <h2>6 · Feature 2 — Relationships</h2>
+    <p>Explore a table's foreign keys in both directions and drop ready-made JOINs into your query.</p>
+    <h3>How to use</h3>
+    <ol class="steps">
+      <li>Open <b>Tools ▸ SQL Companion ▸ Relationships</b>.</li>
+      <li>Pick a <b>Database</b> from the dropdown — the <b>Table</b> dropdown then fills with that database's tables.</li>
+      <li>Pick a <b>Table</b> (or type <code>schema.table</code> / click <b>Use active table</b>) to load its relationships.</li>
+      <li>Choose <b>Join</b> type (<code>INNER</code>/<code>LEFT</code>), then <b>double-click</b> a row to insert the JOIN.</li>
+    </ol>
+    <div class="note"><b>The Table dropdown depends on the Database dropdown.</b> Changing the database repopulates the table list. Use <b>Refresh</b> to reload both lists (e.g., after you connect).</div>
+    <h3>Results grid</h3>
+    <table>
+      <tr><th>Column</th><th>Meaning</th></tr>
+      <tr><td>Direction</td><td><code>→ references</code> (this table points to another) or <code>← referenced by</code> (another table points here).</td></tr>
+      <tr><td>Related schema / table</td><td>The table on the other side of the relationship.</td></tr>
+      <tr><td>Joining columns</td><td>The column pairs that make up the foreign key.</td></tr>
+      <tr><td>FK name</td><td>The foreign-key constraint name.</td></tr>
+    </table>
+    <h3>Inserting a JOIN</h3>
+    <p>Double-click a row (or right-click ▸ <b>Insert JOIN at cursor</b>) to insert an <code>INNER</code>/<code>LEFT JOIN</code> built from the foreign-key columns. The base table is assumed to be aliased <code>t</code> in your <code>FROM</code> clause — rename after pasting if needed. Composite (multi-column) keys are fully supported.</p>
+  </section>
+
+  <section class="feature pagebreak">
+    <h2>7 · Feature 3 — Declare Variables</h2>
+    <p>Turn a snippet full of <code>@variables</code> into runnable T-SQL without hand-writing every <code>DECLARE</code>.</p>
+    <h3>How to use</h3>
+    <ol class="steps">
+      <li>In a query window, write or paste T-SQL that <b>uses</b> variables (e.g. <code>SET @id = 1;</code> … <code>WHERE x = @id</code>).</li>
+      <li>Run <b>Declare Variables</b> from the <b>Tools ▸ SQL Companion</b> submenu, the toolbar, or the editor <b>right-click</b> menu.</li>
+      <li>Missing <code>DECLARE</code> statements are inserted at the top of the batch, with a type inferred from how each variable is used.</li>
+    </ol>
+    <div class="note">Only variables that are <b>used without a DECLARE</b> are added; variables you already declared are left untouched. If nothing is missing, a status message says so.</div>
+  </section>
+
+  <section class="pagebreak">
+    <h2>8 · Tips &amp; troubleshooting</h2>
+    <table>
+      <tr><th>Symptom</th><th>Fix</th></tr>
+      <tr><td>The <b>SQL Companion</b> submenu is missing from Tools</td><td>The menu merge didn't run. Re-run <code>deploy.ps1</code> (it runs <code>ssms.exe /setup</code>), then restart SSMS.</td></tr>
+      <tr><td>Dropdowns / results are empty; header says “No active SQL connection”</td><td>Open a query window that's connected to a server, then click <b>Refresh</b> in the tool window.</td></tr>
+      <tr><td>Relationships Table dropdown is empty</td><td>Pick a <b>Database</b> first, or click <b>Refresh</b>. Views aren't listed here (foreign keys live on tables).</td></tr>
+      <tr><td>Inserted JOIN uses the wrong alias</td><td>The base table is assumed to be aliased <code>t</code>; rename it in the pasted clause to match your query.</td></tr>
+      <tr><td>Double-clicking the <code>.vsix</code> fails to install</td><td>Expected — use <code>deploy.ps1</code> instead (see Installation).</td></tr>
+    </table>
+    <h3>Uninstall</h3>
+    <pre><code>.\deploy.ps1 -Uninstall</code></pre>
+    <p class="meta">Removes the extension folder and re-runs the menu merge. Restart SSMS afterwards.</p>
+  </section>
+
+  <section>
+    <h2>9 · Sample test database</h2>
+    <p>The project ships <code>TestDatabase.sql</code>, which builds two databases full of the shapes these tools exercise:</p>
+    <ul>
+      <li><b>Repeated column names</b> across many tables/views and across two databases — great for Column Search (try <code>name</code>, <code>id</code>, <code>date</code>, and the <b>All databases</b> scope).</li>
+      <li><b>Foreign keys of every kind</b> — self-referencing, cross-schema, and composite (multi-column) — for the Relationships panel. Try loading <code>sales.Order</code>, <code>inventory.Stock</code>, or <code>hr.Employee</code>.</li>
+      <li>A ready <b>Declare Variables</b> snippet at the bottom of the file.</li>
+    </ul>
+    <p>Run the whole script in SSMS (it's safe to re-run — it drops and recreates the databases).</p>
+  </section>
+
+  <footer>
+    SQL Companion for SSMS · User Guide · Publisher: LinkDev · For SQL Server Management Studio 20.
+  </footer>
+
+</body>
+</html>

@@ -41,7 +41,10 @@ namespace SQLCompanion
 
             // Relationships panel
             public const string RelationshipsTableBox = "Type schema.table (or just table) to load its foreign-key relationships.";
-            public const string LoadRelationships = "Load foreign-key relationships for the entered table.";
+            public const string DatabaseDropdown = "Choose which database to list tables from.";
+            public const string TableDropdown = "Pick a table to load its foreign-key relationships (you can also type schema.table).";
+            public const string RefreshLists = "Reload the database and table lists from the active connection.";
+            public const string LoadRelationships = "Load foreign-key relationships for the selected table.";
             public const string UseActiveTable = "Use the table name currently selected in the query editor.";
             public const string JoinTypeDropdown = "Choose whether inserted joins use INNER JOIN or LEFT JOIN.";
             public const string InsertJoinInner = "Insert an INNER JOIN to this related table at the cursor.";

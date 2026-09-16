@@ -150,6 +150,39 @@ ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.COLUMN_NAME;";
             return names;
         }
 
+        /// <summary>
+        /// Base-table names ("schema.table") in the given database, for the Relationships table
+        /// dropdown. Only tables are returned (foreign keys live on tables, not views).
+        /// </summary>
+        public async Task<List<string>> GetTableNamesAsync(
+            ActiveConnectionInfo conn, string database, CancellationToken ct = default)
+        {
+            var names = new List<string>();
+            string cs = DbConnectionStringFor(conn, database);
+            const string sql = @"SELECT TABLE_SCHEMA, TABLE_NAME
+                                 FROM INFORMATION_SCHEMA.TABLES
+                                 WHERE TABLE_TYPE = 'BASE TABLE'
+                                 ORDER BY TABLE_SCHEMA, TABLE_NAME;";
+            using (var connection = new SqlConnection(cs))
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                cmd.CommandTimeout = 60;
+                await connection.OpenAsync(ct).ConfigureAwait(false);
+                using (var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
+                {
+                    while (await r.ReadAsync(ct).ConfigureAwait(false))
+                        names.Add(r.GetString(0) + "." + r.GetString(1));
+                }
+            }
+            return names;
+        }
+
+        /// <summary>Connection string pointed at <paramref name="database"/> (or the original if null/empty).</summary>
+        private static string DbConnectionStringFor(ActiveConnectionInfo conn, string database)
+            => string.IsNullOrEmpty(database)
+                ? conn.ConnectionString
+                : new SqlConnectionStringBuilder(conn.ConnectionString) { InitialCatalog = database }.ConnectionString;
+
         // ------------------------------------------------------------------
         //  Foreign-key relationships
         // ------------------------------------------------------------------
@@ -160,8 +193,9 @@ ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.COLUMN_NAME;";
         /// Reads sys.foreign_keys / sys.foreign_key_columns as requested.
         /// </summary>
         /// <param name="schema">Schema name, or null/empty to match by table name only.</param>
+        /// <param name="database">Database to read from, or null/empty to use the active database.</param>
         public async Task<List<RelationshipInfo>> GetRelationshipsAsync(
-            ActiveConnectionInfo conn, string schema, string table, CancellationToken ct = default)
+            ActiveConnectionInfo conn, string schema, string table, string database = null, CancellationToken ct = default)
         {
             bool haveSchema = !string.IsNullOrWhiteSpace(schema);
 
@@ -191,7 +225,7 @@ ORDER BY fk.name, fkc.constraint_column_id;";
             // Group rows by FK name into RelationshipInfo objects, preserving column order.
             var byFk = new Dictionary<string, RelationshipInfo>(StringComparer.Ordinal);
 
-            using (var connection = new SqlConnection(conn.ConnectionString))
+            using (var connection = new SqlConnection(DbConnectionStringFor(conn, database)))
             using (var cmd = new SqlCommand(sql, connection))
             {
                 cmd.CommandTimeout = 60;

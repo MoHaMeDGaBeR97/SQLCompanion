@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
 using Microsoft.VisualStudio.Shell;
 using SQLCompanion.Db;
@@ -17,17 +16,26 @@ namespace SQLCompanion.Features.Relationships
     /// WPF UI for the foreign-key relationships panel. Shows both directions (references and
     /// referenced-by) for a table, and inserts a ready-made JOIN when a row is activated.
     /// Built in code (no XAML). Every clickable element has a tooltip.
+    ///
+    /// The table picker is a dropdown that depends on the selected database: choose a database and
+    /// its base tables populate the Table dropdown. The Table combo stays editable so a
+    /// schema.table can also be typed (or filled by "Use active table").
     /// </summary>
     internal sealed class RelationshipsControl : UserControl
     {
         private readonly DatabaseService _db = new DatabaseService();
         private readonly ObservableCollection<RelationshipInfo> _rels = new ObservableCollection<RelationshipInfo>();
 
-        private readonly TextBox _tableBox;
+        private readonly ComboBox _dbCombo;
+        private readonly ComboBox _tableCombo;
         private readonly ComboBox _joinTypeCombo;
         private readonly DataGrid _grid;
         private readonly TextBlock _status;
         private readonly TextBlock _connectionInfo;
+
+        private ActiveConnectionInfo _conn;
+        // Guards handlers while we change combo contents/selection programmatically.
+        private bool _populating;
 
         public RelationshipsControl()
         {
@@ -36,20 +44,30 @@ namespace SQLCompanion.Features.Relationships
             var controls = new StackPanel { Orientation = Orientation.Vertical };
             DockPanel.SetDock(controls, Dock.Top);
 
-            // Row 1: table input + load + use-active + join type. A WrapPanel flows the controls onto
-            // the next line when the tool window is narrow, instead of clipping off the right edge.
+            // Row 1: database + table dropdowns + actions + join type. A WrapPanel flows the controls
+            // onto the next line when the tool window is narrow, instead of clipping off the edge.
             var row1 = new WrapPanel { Orientation = Orientation.Horizontal };
-            _tableBox = new TextBox
+
+            _dbCombo = new ComboBox { Width = 180, MinWidth = 120, ToolTip = Strings.Tooltips.DatabaseDropdown };
+            _dbCombo.SelectionChanged += DbCombo_SelectionChanged;
+            row1.Children.Add(Pair("Database:", _dbCombo));
+
+            _tableCombo = new ComboBox
             {
-                Width = 200,
-                MinWidth = 120,
-                ToolTip = Strings.Tooltips.RelationshipsTableBox,
-                VerticalContentAlignment = VerticalAlignment.Center
+                Width = 240,
+                MinWidth = 140,
+                IsEditable = true,       // allow typing schema.table as well as picking
+                IsTextSearchEnabled = true,
+                ToolTip = Strings.Tooltips.TableDropdown
             };
-            _tableBox.KeyDown += (s, e) => { if (e.Key == Key.Enter) LoadRelationships(); };
-            row1.Children.Add(Pair("Table:", _tableBox));
+            _tableCombo.SelectionChanged += TableCombo_SelectionChanged;
+            // Enter in the editable text box loads the typed table.
+            _tableCombo.KeyDown += (s, e) => { if (e.Key == Key.Enter) LoadRelationships(); };
+            row1.Children.Add(Pair("Table:", _tableCombo));
+
             row1.Children.Add(MakeButton(Strings.Captions.Load, Strings.Tooltips.LoadRelationships, (s, e) => LoadRelationships()));
             row1.Children.Add(MakeButton(Strings.Captions.UseActive, Strings.Tooltips.UseActiveTable, (s, e) => UseActiveTable()));
+            row1.Children.Add(MakeButton(Strings.Captions.Refresh, Strings.Tooltips.RefreshLists, (s, e) => LoadLists()));
 
             _joinTypeCombo = new ComboBox { Width = 90, MinWidth = 80, ToolTip = Strings.Tooltips.JoinTypeDropdown };
             _joinTypeCombo.Items.Add("INNER");
@@ -83,11 +101,11 @@ namespace SQLCompanion.Features.Relationships
             _grid.ContextMenu = BuildRowContextMenu();
 
             var star = new DataGridLength(1, DataGridLengthUnitType.Star);
-            _grid.Columns.Add(new DataGridTextColumn { Header = "Direction", Binding = new Binding(nameof(RelationshipInfo.DirectionGlyph)) });
-            _grid.Columns.Add(new DataGridTextColumn { Header = "Related schema", Binding = new Binding(nameof(RelationshipInfo.OtherSchema)) });
-            _grid.Columns.Add(new DataGridTextColumn { Header = "Related table", Binding = new Binding(nameof(RelationshipInfo.OtherTable)), Width = star });
-            _grid.Columns.Add(new DataGridTextColumn { Header = "Joining columns", Binding = new Binding(nameof(RelationshipInfo.ColumnsDisplay)), Width = star });
-            _grid.Columns.Add(new DataGridTextColumn { Header = "FK name", Binding = new Binding(nameof(RelationshipInfo.ForeignKeyName)) });
+            _grid.Columns.Add(new DataGridTextColumn { Header = "Direction", Binding = new System.Windows.Data.Binding(nameof(RelationshipInfo.DirectionGlyph)) });
+            _grid.Columns.Add(new DataGridTextColumn { Header = "Related schema", Binding = new System.Windows.Data.Binding(nameof(RelationshipInfo.OtherSchema)) });
+            _grid.Columns.Add(new DataGridTextColumn { Header = "Related table", Binding = new System.Windows.Data.Binding(nameof(RelationshipInfo.OtherTable)), Width = star });
+            _grid.Columns.Add(new DataGridTextColumn { Header = "Joining columns", Binding = new System.Windows.Data.Binding(nameof(RelationshipInfo.ColumnsDisplay)), Width = star });
+            _grid.Columns.Add(new DataGridTextColumn { Header = "FK name", Binding = new System.Windows.Data.Binding(nameof(RelationshipInfo.ForeignKeyName)) });
 
             // Tooltip on each row explaining the click action.
             var rowStyle = new Style(typeof(DataGridRow));
@@ -97,14 +115,88 @@ namespace SQLCompanion.Features.Relationships
             root.Children.Add(_grid);
             Content = root;
 
-            RefreshConnection();
+            // Populate the database + table dropdowns from the active connection.
+            LoadLists();
         }
 
-        private ContextMenu BuildRowContextMenu()
+        // ------------------------------------------------------------------
+        //  Populate the database + table dropdowns
+        // ------------------------------------------------------------------
+
+        /// <summary>Reloads the database list (and the tables for the selected database).</summary>
+        private async void LoadLists()
         {
-            var menu = new ContextMenu();
-            menu.Items.Add(MakeMenuItem("Insert JOIN at cursor", Strings.Tooltips.InsertJoinRow, InsertJoinForSelected));
-            return menu;
+            _conn = ConnectionContext.TryGetActiveConnection();
+            if (_conn == null)
+            {
+                _connectionInfo.Text = Strings.Messages.NoActiveConnection;
+                _populating = true;
+                _dbCombo.ItemsSource = null;
+                _tableCombo.ItemsSource = null;
+                _populating = false;
+                return;
+            }
+            ShowConnection(_conn);
+
+            try
+            {
+                List<string> dbs = await _db.GetDatabaseNamesAsync(_conn);
+
+                _populating = true;
+                _dbCombo.ItemsSource = dbs;
+                if (_conn.Database != null && dbs.Contains(_conn.Database))
+                    _dbCombo.SelectedItem = _conn.Database;
+                else if (dbs.Count > 0)
+                    _dbCombo.SelectedIndex = 0;
+                _populating = false;
+
+                await PopulateTablesAsync();
+            }
+            catch (Exception ex)
+            {
+                _status.Text = Strings.Messages.QueryFailed(ex.Message);
+            }
+        }
+
+        /// <summary>Fills the Table dropdown with the base tables of the selected database.</summary>
+        private async Task PopulateTablesAsync()
+        {
+            if (_conn == null) return;
+            string db = _dbCombo.SelectedItem as string ?? _conn.Database;
+            if (string.IsNullOrEmpty(db)) return;
+
+            try
+            {
+                List<string> tables = await _db.GetTableNamesAsync(_conn, db);
+
+                _populating = true;
+                _tableCombo.ItemsSource = tables;
+                _tableCombo.SelectedIndex = -1;
+                _tableCombo.Text = string.Empty;
+                _populating = false;
+
+                _status.Text = tables.Count == 1
+                    ? $"1 table in {db}."
+                    : $"{tables.Count} tables in {db}.";
+            }
+            catch (Exception ex)
+            {
+                _status.Text = Strings.Messages.QueryFailed(ex.Message);
+            }
+        }
+
+        private async void DbCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_populating) return;
+            await PopulateTablesAsync();
+        }
+
+        private void TableCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_populating) return;
+            // Only auto-load when a real item was picked from the dropdown (not on text typing).
+            if (_tableCombo.SelectedItem is string)
+                LoadRelationships();
         }
 
         // ------------------------------------------------------------------
@@ -113,27 +205,28 @@ namespace SQLCompanion.Features.Relationships
         private async void LoadRelationships()
         {
             // WPF event handler — already on the UI thread.
-            string raw = _tableBox.Text?.Trim();
+            string raw = (_tableCombo.Text ?? (_tableCombo.SelectedItem as string))?.Trim();
             if (string.IsNullOrEmpty(raw))
             {
                 _status.Text = Strings.Messages.EnterTableName;
                 return;
             }
 
-            var conn = ConnectionContext.TryGetActiveConnection();
-            if (conn == null)
+            if (_conn == null) _conn = ConnectionContext.TryGetActiveConnection();
+            if (_conn == null)
             {
                 _status.Text = Strings.Messages.NoActiveConnection;
                 return;
             }
-            ShowConnection(conn);
+            ShowConnection(_conn);
 
+            string db = _dbCombo.SelectedItem as string ?? _conn.Database;
             ParseTable(raw, out string schema, out string table);
             _status.Text = "Loading…";
 
             try
             {
-                List<RelationshipInfo> rels = await Task.Run(() => _db.GetRelationshipsAsync(conn, schema, table));
+                List<RelationshipInfo> rels = await _db.GetRelationshipsAsync(_conn, schema, table, db);
                 _rels.Clear();
                 foreach (var r in rels) _rels.Add(r);
                 _status.Text = rels.Count == 0
@@ -155,8 +248,27 @@ namespace SQLCompanion.Features.Relationships
                 _status.Text = Strings.Messages.NoActiveEditor;
                 return;
             }
-            _tableBox.Text = token.Trim();
+            // Point at the active connection's database so the typed table resolves there.
+            var active = ConnectionContext.TryGetActiveConnection();
+            if (active != null)
+            {
+                _conn = active;
+                if (active.Database != null && _dbCombo.Items.Contains(active.Database))
+                {
+                    _populating = true;
+                    _dbCombo.SelectedItem = active.Database;
+                    _populating = false;
+                }
+            }
+            _tableCombo.Text = token.Trim();
             LoadRelationships();
+        }
+
+        private ContextMenu BuildRowContextMenu()
+        {
+            var menu = new ContextMenu();
+            menu.Items.Add(MakeMenuItem("Insert JOIN at cursor", Strings.Tooltips.InsertJoinRow, InsertJoinForSelected));
+            return menu;
         }
 
         /// <summary>Splits "schema.table" (with optional [brackets]) into parts. Schema may be null.</summary>
@@ -165,7 +277,6 @@ namespace SQLCompanion.Features.Relationships
             schema = null;
             table = raw;
 
-            // Strip surrounding whitespace already done. Handle bracketed identifiers.
             var parts = SplitQualified(raw);
             if (parts.Count >= 2)
             {
@@ -225,14 +336,6 @@ namespace SQLCompanion.Features.Relationships
         // ------------------------------------------------------------------
         //  Connection status + helpers
         // ------------------------------------------------------------------
-        private void RefreshConnection()
-        {
-            var conn = ConnectionContext.TryGetActiveConnection();
-            _connectionInfo.Text = conn == null
-                ? Strings.Messages.NoActiveConnection
-                : Strings.Messages.Connected(conn.Server, conn.Database);
-        }
-
         private void ShowConnection(ActiveConnectionInfo conn)
             => _connectionInfo.Text = Strings.Messages.Connected(conn.Server, conn.Database);
 
@@ -249,6 +352,13 @@ namespace SQLCompanion.Features.Relationships
             return b;
         }
 
+        private static MenuItem MakeMenuItem(string header, string tooltip, Action onClick)
+        {
+            var mi = new MenuItem { Header = header, ToolTip = tooltip };
+            mi.Click += (s, e) => onClick();
+            return mi;
+        }
+
         /// <summary>A label + control pair kept together as one unit inside a wrapping toolbar.</summary>
         private static StackPanel Pair(string label, UIElement element)
         {
@@ -256,13 +366,6 @@ namespace SQLCompanion.Features.Relationships
             sp.Children.Add(new Label { Content = label, VerticalAlignment = VerticalAlignment.Center });
             sp.Children.Add(element);
             return sp;
-        }
-
-        private static MenuItem MakeMenuItem(string header, string tooltip, Action onClick)
-        {
-            var mi = new MenuItem { Header = header, ToolTip = tooltip };
-            mi.Click += (s, e) => onClick();
-            return mi;
         }
     }
 }
